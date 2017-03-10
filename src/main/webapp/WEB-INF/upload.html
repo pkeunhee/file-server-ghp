@@ -1,0 +1,82 @@
+
+<!doctype html>
+<head>
+<title>File Upload Progress Demo #1</title>
+<!-- Latest compiled and minified CSS -->
+
+<script src="/WEB-INF/js/jquery-1.8.3.min.js"></script>
+<script src="/WEB-INF/js/jquery.form.js"></script>
+<script type="text/javascript">
+
+createdFormCount = 0; // how many file uploads forms are created so far, used to generate form ID
+var attachFormEvents = function(contentHolderSelector, formId) {
+    
+    var barId = formId + '-progress-bar';
+    var barParentId = formId + 'progress';
+    var statusId = formId + '-status';
+       
+    $('form').ajaxForm({
+        crossDomain: true,
+        beforeSend: function() {
+
+            var progressHtml = '<div style="width:100%;border:1px solid #CCC" id="'+barParentId+'">';
+            progressHtml += '<div style="width: 0%; height:20px;background-color:green" id="'+barId+'"></div>';
+            progressHtml += '</div>';
+            $(contentHolderSelector).append(progressHtml);
+            $('#'+formId).remove();
+        },
+        uploadProgress: function(event, position, total, percentComplete) {
+            var percentVal = percentComplete + '%';
+            $('#'+barId).animate({'width':percentVal});
+            //percent.html(percentVal);
+        },
+        success: function() {
+            var percentVal = '100%';
+            //bar.width(percentVal);
+            $('#'+barId).animate({'width':percentVal});
+            //percent.html(percentVal);
+        },
+        complete: function(xhr) {
+            //console.log(xhr.responseText);
+            $('#'+barParentId).remove();
+            var responseObj = JSON.parse(xhr.responseText);
+            
+            $(contentHolderSelector).append('<p><a href="http://127.0.0.1:8080?file=' + responseObj.file+'" target="_blank">Open</a></p>');
+        }
+    }); 
+
+};
+$(document).on('click', '.reve-chat-file-form-cancel-btn', function(){
+    $(this).parent().fadeOut(); // hide the file upload form
+});
+
+$(document).ready(function(){
+    $('#reve-chat-send-file-btn').click(function(){
+        createdFormCount++;
+        var formId = 'reve-chat-file-form-' + createdFormCount;
+        var formHtml = '<form action="http://127.0.0.1:8080" method="post" enctype="multipart/form-data"';
+        formHtml += 'style="margin:3px;border:1px solid #000"' + ' id="' + formId + '">';
+        formHtml += '<input type="file" name="myfile">';
+        formHtml += '<button type="submit">Upload File to Server</button>';
+        formHtml += '<button type="button" class="reve-chat-file-form-cancel-btn">Cancel</button>';
+        formHtml += '</form>';
+
+        $('#reve-chat-window-content').append(formHtml);
+        attachFormEvents('#reve-chat-window-content', formId);
+    });
+});
+</script>
+<style>
+body{padding-top: 50px;}
+</style>
+</head>
+<body>
+    <div id="reve-chat-window" style="background-color:orange;padding:10px">
+        <h3>Reve Live Chat</h3>
+        <div id="reve-chat-window-content" style="background-color:white;padding:5px;"></div>
+        <button type="button" id="reve-chat-send-file-btn">Send a file</button>
+    </div>
+
+<script>
+
+</script>
