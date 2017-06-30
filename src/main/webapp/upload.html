@@ -4,8 +4,8 @@
 <title>File Upload Progress Demo #1</title>
 <!-- Latest compiled and minified CSS -->
 
-<script src="/WEB-INF/js/jquery-1.8.3.min.js"></script>
-<script src="/WEB-INF/js/jquery.form.js"></script>
+<script src="/js/jquery-1.8.3.min.js"></script>
+<script src="/js/jquery.form.js"></script>
 <script type="text/javascript">
 
 createdFormCount = 0; // how many file uploads forms are created so far, used to generate form ID
@@ -41,7 +41,7 @@ var attachFormEvents = function(contentHolderSelector, formId) {
             $('#'+barParentId).remove();
             var responseObj = JSON.parse(xhr.responseText);
             
-            $(contentHolderSelector).append('<p><a href="http://127.0.0.1:8080?file=' + responseObj.file+'" target="_blank">Open</a></p>');
+            $(contentHolderSelector).append('<p><a href="http://127.0.0.1:18080?file=' + responseObj.file+'" target="_blank">Open</a></p>');
         }
     }); 
 
@@ -54,7 +54,7 @@ $(document).ready(function(){
     $('#reve-chat-send-file-btn').click(function(){
         createdFormCount++;
         var formId = 'reve-chat-file-form-' + createdFormCount;
-        var formHtml = '<form action="http://127.0.0.1:8080" method="post" enctype="multipart/form-data"';
+        var formHtml = '<form action="http://127.0.0.1:18080" method="post" enctype="multipart/form-data"';
         formHtml += 'style="margin:3px;border:1px solid #000"' + ' id="' + formId + '">';
         formHtml += '<input type="file" name="myfile">';
         formHtml += '<button type="submit">Upload File to Server</button>';

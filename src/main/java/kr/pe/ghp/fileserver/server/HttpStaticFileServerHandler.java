@@ -1,4 +1,4 @@
-package nettyfile.server;
+package kr.pe.ghp.fileserver.server;
 
 import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelFuture;
@@ -55,7 +55,8 @@ import net.coobird.thumbnailator.Thumbnails;
 public class HttpStaticFileServerHandler extends SimpleChannelInboundHandler<FullHttpRequest> {
 
     // where to store the files
-    private static final String BASE_PATH = "uploads/";
+    //private static final String BASE_PATH = "uploads/";
+	private static final String BASE_PATH = "D:/upload/";
 
     // query param used to download a file
     private static final String FILE_QUERY_PARAM = "file";
