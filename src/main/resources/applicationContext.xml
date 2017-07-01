@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:context="http://www.springframework.org/schema/context"
+       xmlns:tx="http://www.springframework.org/schema/tx"
+       xmlns="http://www.springframework.org/schema/beans"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans
+                           http://www.springframework.org/schema/beans/spring-beans.xsd
+	                       http://www.springframework.org/schema/context
+                           http://www.springframework.org/schema/context/spring-context.xsd
+                           http://www.springframework.org/schema/tx
+                           http://www.springframework.org/schema/tx/spring-tx.xsd">
+
+	<!-- root context 에서 bean으로 등록될 객체 지정 -->
+	<context:component-scan base-package="kr.pe.ghp.fileserver"/>
+   
+    <!-- Enable annotations-->
+    <context:annotation-config/>
+
+    <!-- static way 로도 key, value 가져올수 있게 overrided -->
+    <bean id="placeholderProperties" class="kr.pe.ghp.fileserver.util.PropertiesUtils">
+        <property name="locations">
+            <list>
+                <value>classpath:server.properties</value>
+            </list>
+        </property>
+        <property name="ignoreResourceNotFound" value="true"/>
+        <property name="ignoreUnresolvablePlaceholders" value="false"/>
+        <property name="order" value="1"/>
+    </bean>
+</beans>

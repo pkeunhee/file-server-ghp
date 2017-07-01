@@ -2,8 +2,7 @@ package kr.pe.ghp.fileserver.server;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import io.netty.bootstrap.ServerBootstrap;
@@ -15,9 +14,8 @@ import io.netty.channel.socket.nio.NioServerSocketChannel;
 @Component
 public final class HttpStaticFileServer {
 	private static Logger logger = LoggerFactory.getLogger(HttpStaticFileServer.class);
-
-	@Autowired
-	@Qualifier("port")
+	
+	@Value("${tcp.port}")
 	private int port;
 
 	public void start() throws Exception {

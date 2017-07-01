@@ -40,7 +40,7 @@ public class HttpStaticFileServerInitializer extends ChannelInitializer<SocketCh
 
         pipeline.addLast("encoder", new HttpResponseEncoder());
         pipeline.addLast("decoder", new HttpRequestDecoder());
-        pipeline.addLast("aggregator", new HttpObjectAggregator(8388608)); // 8MB
+        pipeline.addLast("aggregator", new HttpObjectAggregator(83886080)); // 80MB
         //pipeline.addLast("chunkedWriter", new ChunkedWriteHandler());
         
         pipeline.addLast("cors", new CorsHandler(corsConfig));
