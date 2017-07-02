@@ -24,27 +24,25 @@ import io.netty.handler.codec.http.HttpResponseEncoder;
 import io.netty.handler.codec.http.cors.CorsConfig;
 import io.netty.handler.codec.http.cors.CorsHandler;
 
+/**
+ * @author geunhui park
+ */
 public class HttpStaticFileServerInitializer extends ChannelInitializer<SocketChannel> {
-    @Override
-    public void initChannel(SocketChannel ch) throws Exception {
-        // Create a default pipeline implementation.
-        
-        CorsConfig corsConfig = CorsConfig.withAnyOrigin().build();
-        
-        ChannelPipeline pipeline = ch.pipeline();
+	@Override
+	public void initChannel(SocketChannel ch) throws Exception {
+		// Create a default pipeline implementation.
+		ChannelPipeline pipeline = ch.pipeline();
 
-        // Uncomment the following line if you want HTTPS
-        //SSLEngine engine = SecureChatSslContextFactory.getServerContext().createSSLEngine();
-        //engine.setUseClientMode(false);
-        //pipeline.addLast("ssl", new SslHandler(engine));
+		// Uncomment the following line if you want HTTPS
+		// SSLEngine engine = SecureChatSslContextFactory.getServerContext().createSSLEngine();
+		// engine.setUseClientMode(false);
+		// pipeline.addLast("ssl", new SslHandler(engine));
 
-        pipeline.addLast("encoder", new HttpResponseEncoder());
-        pipeline.addLast("decoder", new HttpRequestDecoder());
-        pipeline.addLast("aggregator", new HttpObjectAggregator(83886080)); // 80MB
-        //pipeline.addLast("chunkedWriter", new ChunkedWriteHandler());
-        
-        pipeline.addLast("cors", new CorsHandler(corsConfig));
-        
-        pipeline.addLast("handler", new HttpStaticFileServerHandler()); 
-    }
+		pipeline.addLast("encoder", new HttpResponseEncoder());
+		pipeline.addLast("decoder", new HttpRequestDecoder());
+		pipeline.addLast("aggregator", new HttpObjectAggregator(83886080)); // 80MB
+		// pipeline.addLast("chunkedWriter", new ChunkedWriteHandler());
+		pipeline.addLast("cors", new CorsHandler(CorsConfig.withAnyOrigin().build()));
+		pipeline.addLast("handler", new HttpStaticFileServerHandler());
+	}
 }

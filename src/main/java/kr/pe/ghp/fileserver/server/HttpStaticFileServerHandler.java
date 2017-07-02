@@ -10,18 +10,13 @@ import static io.netty.handler.codec.http.HttpResponseStatus.OK;
 import static io.netty.handler.codec.http.HttpVersion.HTTP_1_1;
 
 import java.awt.Graphics;
-import java.awt.Graphics2D;
 import java.awt.image.BufferedImage;
-import java.awt.image.ImagingOpException;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.RandomAccessFile;
-import java.net.URI;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
-import java.util.logging.Level;
 
 import javax.activation.MimetypesFileTypeMap;
 import javax.imageio.ImageIO;
@@ -29,7 +24,6 @@ import javax.imageio.ImageIO;
 import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.imgscalr.Scalr;
-import org.json.JSONException;
 import org.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -49,6 +43,7 @@ import io.netty.handler.codec.http.HttpHeaders;
 import io.netty.handler.codec.http.HttpMethod;
 import io.netty.handler.codec.http.HttpResponse;
 import io.netty.handler.codec.http.HttpResponseStatus;
+import io.netty.handler.codec.http.HttpUtil;
 import io.netty.handler.codec.http.HttpVersion;
 import io.netty.handler.codec.http.LastHttpContent;
 import io.netty.handler.codec.http.QueryStringDecoder;
@@ -59,18 +54,16 @@ import io.netty.handler.codec.http.multipart.HttpPostRequestDecoder;
 import io.netty.handler.codec.http.multipart.InterfaceHttpData;
 import io.netty.util.CharsetUtil;
 import kr.pe.ghp.fileserver.util.PropertiesUtils;
-import net.coobird.thumbnailator.Thumbnails;
 
 /**
- * 
  * @author geunhui park
- *
  */
 public class HttpStaticFileServerHandler extends SimpleChannelInboundHandler<FullHttpRequest> {
 	private static Logger LOGGER = LoggerFactory.getLogger(HttpStaticFileServerHandler.class);
 
-	private static final String BASE_PATH = PropertiesUtils.getProperty("path.parent"); // 파일 저장될곳 parent path
-	private static final String CDN_PATH = PropertiesUtils.getProperty("path.cdn");
+	private static final String PATH_PARENT = PropertiesUtils.getProperty("path.parent"); // 파일 저장될곳 parent path
+	private static final String PATH_DIR = PropertiesUtils.getProperty("path.dir");
+	private static final String URL_PARENT = PropertiesUtils.getProperty("url.parent");
 
 	// query param used to download a file
 	private static final String FILE_QUERY_PARAM = "file";
@@ -85,20 +78,16 @@ public class HttpStaticFileServerHandler extends SimpleChannelInboundHandler<Ful
 
 	@Override
 	protected void channelRead0(ChannelHandlerContext ctx, FullHttpRequest request) throws Exception {
-		URI uri = new URI(request.getUri());
-		String uriStr = uri.getPath();
+		LOGGER.info("channelRead :: " + request.method() + " request received");
 
-		System.out.println(request.getMethod() + " request received");
-
-		if (request.getMethod() == HttpMethod.GET) {
+		if (request.method() == HttpMethod.GET) {
 			serveFile(ctx, request); // user requested a file, serve it
-		} else if (request.getMethod() == HttpMethod.POST) {
+		} else if (request.method() == HttpMethod.POST) {
 			uploadFile(ctx, request); // user requested to upload file, handle request
 		} else { // 잘못된 요청
-			System.out.println(request.getMethod() + " request received, sending 405");
+			LOGGER.info(request.method() + " request received, sending 405");
 			sendError(ctx, HttpResponseStatus.METHOD_NOT_ALLOWED);
 		}
-
 	}
 
 	private void serveFile(ChannelHandlerContext ctx, FullHttpRequest request) {
@@ -126,7 +115,7 @@ public class HttpStaticFileServerHandler extends SimpleChannelInboundHandler<Ful
 	 *            name of the requested file
 	 */
 	private void sendFile(ChannelHandlerContext ctx, String fileName, FullHttpRequest request) {
-		File file = new File(BASE_PATH + fileName);
+		File file = new File(PATH_PARENT + fileName);
 		if (file.isDirectory() || file.isHidden() || !file.exists()) {
 			sendError(ctx, NOT_FOUND);
 			return;
@@ -198,45 +187,44 @@ public class HttpStaticFileServerHandler extends SimpleChannelInboundHandler<Ful
 	}
 
 	private void uploadFile(ChannelHandlerContext ctx, FullHttpRequest request) {
-
-		// test comment
 		try {
 			decoder = new HttpPostRequestDecoder(factory, request);
-			// System.out.println("decoder created");
-		} catch (HttpPostRequestDecoder.ErrorDataDecoderException e1) {
-			e1.printStackTrace();
+			LOGGER.info("decoder created");
+		} catch (Exception e1) {
+			LOGGER.error(e1.toString(), e1);
 			sendError(ctx, HttpResponseStatus.BAD_REQUEST, "Failed to decode file data");
 			return;
 		}
 
-		readingChunks = HttpHeaders.isTransferEncodingChunked(request);
+		readingChunks = HttpUtil.isTransferEncodingChunked(request);
 
-		if (decoder != null) {
-			if (request instanceof HttpContent) {
-
-				// New chunk is received
-				HttpContent chunk = (HttpContent) request;
-				try {
-					decoder.offer(chunk);
-				} catch (HttpPostRequestDecoder.ErrorDataDecoderException e1) {
-					e1.printStackTrace();
-					sendError(ctx, HttpResponseStatus.BAD_REQUEST, "Failed to decode file data");
-					return;
-				}
-
-				readHttpDataChunkByChunk(ctx);
-				// example of reading only if at the end
-				if (chunk instanceof LastHttpContent) {
-					readingChunks = false;
-					reset();
-				}
-			} else {
-				sendError(ctx, HttpResponseStatus.BAD_REQUEST, "Not a http request");
-			}
-		} else {
+		if (decoder == null) {
 			sendError(ctx, HttpResponseStatus.BAD_REQUEST, "Failed to decode file data");
+			return;
 		}
 
+		if (!(request instanceof HttpContent)) {
+			sendError(ctx, HttpResponseStatus.BAD_REQUEST, "Not a http request");
+			return;
+		}
+
+		// New chunk is received
+		HttpContent chunk = (HttpContent) request;
+		try {
+			decoder.offer(chunk);
+		} catch (Exception e1) {
+			LOGGER.error(e1.toString(), e1);
+			sendError(ctx, HttpResponseStatus.BAD_REQUEST, "Failed to decode file data");
+			return;
+		}
+
+		readHttpDataChunkByChunk(ctx);
+
+		// example of reading only if at the end
+		if (chunk instanceof LastHttpContent) {
+			readingChunks = false;
+			reset();
+		}
 	}
 
 	private void sendOptionsRequestResponse(ChannelHandlerContext ctx) {
@@ -255,8 +243,6 @@ public class HttpStaticFileServerHandler extends SimpleChannelInboundHandler<Ful
 	}
 
 	private void sendUploadedFileName(JSONObject fileName, ChannelHandlerContext ctx) {
-		JSONObject jsonObj = new JSONObject();
-
 		String msg = "Unexpected error occurred";
 		String contentType = "application/json; charset=UTF-8";
 		HttpResponseStatus status = HttpResponseStatus.OK;
@@ -274,8 +260,6 @@ public class HttpStaticFileServerHandler extends SimpleChannelInboundHandler<Ful
 	}
 
 	private void reset() {
-		// request = null;
-
 		// destroy the decoder to release all resources
 		decoder.destroy();
 		decoder = null;
@@ -285,11 +269,10 @@ public class HttpStaticFileServerHandler extends SimpleChannelInboundHandler<Ful
 	 * Example of reading request by chunk and getting values from chunk to chunk
 	 */
 	private void readHttpDataChunkByChunk(ChannelHandlerContext ctx) {
-		// decoder.isMultipart();
 		if (decoder.isMultipart()) {
 			try {
 				while (decoder.hasNext()) {
-					// System.out.println("decoder has next");
+					LOGGER.info("chunk 단위로 request 를 읽는다.");
 					InterfaceHttpData data = decoder.next();
 					if (data != null) {
 						writeHttpData(data, ctx);
@@ -297,7 +280,8 @@ public class HttpStaticFileServerHandler extends SimpleChannelInboundHandler<Ful
 					}
 				}
 			} catch (Exception e) {
-				// e.printStackTrace();
+				// TODO : decoder.hasNext() EndOfDataDecoderException 발생 함. (정상 동작이긴 함)
+				// LOGGER.error(e.toString(), e);
 			}
 		} else {
 			sendError(ctx, HttpResponseStatus.BAD_REQUEST, "Not a multipart request");
@@ -307,7 +291,6 @@ public class HttpStaticFileServerHandler extends SimpleChannelInboundHandler<Ful
 	}
 
 	private void writeHttpData(InterfaceHttpData data, ChannelHandlerContext ctx) {
-
 		if (data.getHttpDataType() == InterfaceHttpData.HttpDataType.FileUpload) {
 			FileUpload fileUpload = (FileUpload) data;
 
@@ -322,17 +305,6 @@ public class HttpStaticFileServerHandler extends SimpleChannelInboundHandler<Ful
 	}
 
 	/**
-	 * generates and returns a unique string that'll be used to save an uploaded file to disk
-	 *
-	 * @return generated unique string
-	 */
-	private String getUniqueId() {
-		UUID uniqueId = UUID.randomUUID();
-
-		return uniqueId.toString();
-	}
-
-	/**
 	 * Saves the uploaded file to disk.
 	 *
 	 * @param fileUpload
@@ -340,18 +312,14 @@ public class HttpStaticFileServerHandler extends SimpleChannelInboundHandler<Ful
 	 * @return name of the saved file. null if error occurred
 	 */
 	private JSONObject saveFileToDisk(FileUpload fileUpload) {
-		String filePath = null; // full path of the new file to be saved
 		String upoadedFileName = fileUpload.getFilename(); // 임시 디렉토리에 저장된 파일
-		// get the extension of the uploaded file
-		String extension = "";
-		int i = upoadedFileName.lastIndexOf('.');
-		if (i > 0) {
-			// get extension including the "."
-			extension = upoadedFileName.substring(i);
-		}
 
-		String newFilename = FilenameUtils.getBaseName(upoadedFileName) + "_" + System.currentTimeMillis() + "." + FilenameUtils.getExtension(upoadedFileName);
+		StringBuffer newFileName = new StringBuffer(); // 새로운 파일명으로 rename 하기 위해
+		newFileName.append(FilenameUtils.getBaseName(upoadedFileName));
+		newFileName.append("_").append(System.currentTimeMillis());
+		newFileName.append(".").append(FilenameUtils.getExtension(upoadedFileName));
 
+		// TODO : service 로 분리
 		try {
 			BufferedImage originalImage = ImageIO.read(fileUpload.getFile());
 
@@ -369,85 +337,26 @@ public class HttpStaticFileServerHandler extends SimpleChannelInboundHandler<Ful
 				ImageIO.write(imageToSave, "jpg", fileUpload.getFile());
 			}
 		} catch (Exception e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
+			LOGGER.error(e.toString(), e);
 		}
 
 		JSONObject responseJson = new JSONObject();
 		try {
-			filePath = BASE_PATH + (StringUtils.endsWith(BASE_PATH, "/") ? "" : "/") + CDN_PATH + "/" + newFilename;
-			fileUpload.renameTo(new File(filePath)); // enable to move into another
-			responseJson.put("url", "http://cdn.ghp.pe.kr:180/" + CDN_PATH + "/" + newFilename);
-			// if (isImageExtension(extension)) {
-			// //썸네일 이미지 만들기
-			// String thumbname = createThumbnail(filePath, uniqueBaseName, extension);
-			// responseJson.put("thumb", thumbname);
-			// }
-		} catch (IOException ex) {
-			responseJson = null;
-		} catch (JSONException ex) {
-			LOGGER.error(ex.toString(), ex);
+			StringBuffer newFilePath = new StringBuffer();
+			newFilePath.append(PATH_PARENT);
+			newFilePath.append(StringUtils.endsWith(PATH_PARENT, "/") ? "" : "/");
+			newFilePath.append(PATH_DIR);
+			newFilePath.append("/");
+			newFilePath.append(newFileName.toString());
+
+			fileUpload.renameTo(new File(newFilePath.toString())); // 파일을 이동 시킨다
+			responseJson.put("url", URL_PARENT + PATH_DIR + "/" + newFileName.toString());
+		} catch (Exception e) {
+			LOGGER.error(e.toString(), e);
 			responseJson = null;
 		}
 
 		return responseJson;
-	}
-
-	/**
-	 * Creates a thumbnail of an image file
-	 *
-	 * @param fileFullPath
-	 *            full path of the source image
-	 * @param fileNameBase
-	 *            Base name of the file i.e without extension
-	 */
-	private String createThumbnail(String fileFullPath, String fileNameBase, String extension) {
-		String thumbImgName = fileNameBase + "_thumb" + extension; // thumbnail image base name
-		String thumbImageFullPath = BASE_PATH + thumbImgName; // all thumbs are jpg files
-
-		try {
-			Thumbnails.of(new File(fileFullPath)).size(100, 100).toFile(new File(thumbImageFullPath));
-		} catch (IOException ex) {
-			LOGGER.error(ex.toString(), ex);
-			thumbImgName = "";
-		}
-
-		// Logger.getLogger(HttpStaticFileServerHandler.class.getName()).log(Level.SEVERE, null,
-		// "Creating thumbnail of image " + fileFullPath);
-		//
-		//
-		//
-		// //Scalr.resize(null, THUMB_MAX_WIDTH, null);
-		// try {
-		// BufferedImage img = ImageIO.read(new File(fileFullPath));
-		// BufferedImage scaledImg = Scalr.resize(img, THUMB_MAX_WIDTH);
-		//
-		// //BufferedImage scaledImg = Scalr.resize(img, Mode.AUTOMATIC, 640, 480);
-		// File destFile = new File(thumbImageFullPath);
-		//
-		// ImageIO.write(scaledImg, "jpg", destFile);
-		// } catch (ImagingOpException | IOException | IllegalArgumentException e) {
-		// Logger.getLogger(HttpStaticFileServerHandler.class.getName()).log(Level.SEVERE, null, e);
-		// e.printStackTrace();
-		// System.out.println(e.toString());
-		// thumbImgName = "";
-		// }
-
-		return thumbImgName;
-
-	}
-
-	private static boolean isImageExtension(String extension) {
-		boolean isImageFile = false;
-		String extensionInLowerCase = extension.toLowerCase();
-
-		isImageFile |= extensionInLowerCase.equals(".jpg");
-		isImageFile |= extensionInLowerCase.equals(".png");
-		isImageFile |= extensionInLowerCase.equals(".jpeg");
-		isImageFile |= extensionInLowerCase.equals(".gif");
-
-		return isImageFile;
-
 	}
 
 	private void sendError(ChannelHandlerContext ctx, HttpResponseStatus status, String msg) {
@@ -461,15 +370,4 @@ public class HttpStaticFileServerHandler extends SimpleChannelInboundHandler<Ful
 	private void sendError(ChannelHandlerContext ctx, HttpResponseStatus status) {
 		sendError(ctx, status, "Failure: " + status.toString() + "\r\n");
 	}
-
-	private static BufferedImage resizeImage(BufferedImage originalImage, int type) {
-
-		BufferedImage resizedImage = new BufferedImage(THUMB_MAX_WIDTH, THUMB_MAX_HEIGHT, type);
-		Graphics2D g = resizedImage.createGraphics();
-		g.drawImage(originalImage, 0, 0, THUMB_MAX_WIDTH, THUMB_MAX_HEIGHT, null);
-		g.dispose();
-
-		return resizedImage;
-	}
-
 }
