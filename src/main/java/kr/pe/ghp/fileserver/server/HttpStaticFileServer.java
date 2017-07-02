@@ -11,10 +11,15 @@ import io.netty.channel.EventLoopGroup;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
 
+/**
+ * 
+ * @author geunhui park
+ *
+ */
 @Component
 public final class HttpStaticFileServer {
 	private static Logger logger = LoggerFactory.getLogger(HttpStaticFileServer.class);
-	
+
 	@Value("${tcp.port}")
 	private int port;
 
@@ -23,10 +28,12 @@ public final class HttpStaticFileServer {
 		EventLoopGroup workerGroup = new NioEventLoopGroup();
 		try {
 			ServerBootstrap b = new ServerBootstrap();
-			b.group(bossGroup, workerGroup).channel(NioServerSocketChannel.class).childHandler(new HttpStaticFileServerInitializer());
+			b.group(bossGroup, workerGroup)
+			.channel(NioServerSocketChannel.class)
+			.childHandler(new HttpStaticFileServerInitializer());
 
 			Channel ch = b.bind(port).sync().channel();
-			logger.info("File server started at port " + port + '.');
+			logger.info(String.format("File server started at port %s.", port));
 
 			ch.closeFuture().sync();
 		} finally {

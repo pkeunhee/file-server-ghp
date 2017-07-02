@@ -22,7 +22,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.logging.Level;
-import java.util.logging.Logger;
 
 import javax.activation.MimetypesFileTypeMap;
 import javax.imageio.ImageIO;
@@ -32,6 +31,8 @@ import org.apache.commons.lang3.StringUtils;
 import org.imgscalr.Scalr;
 import org.json.JSONException;
 import org.json.JSONObject;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelFuture;
@@ -66,6 +67,8 @@ import net.coobird.thumbnailator.Thumbnails;
  *
  */
 public class HttpStaticFileServerHandler extends SimpleChannelInboundHandler<FullHttpRequest> {
+	private static Logger LOGGER = LoggerFactory.getLogger(HttpStaticFileServerHandler.class);
+
 	private static final String BASE_PATH = PropertiesUtils.getProperty("path.parent"); // 파일 저장될곳 parent path
 	private static final String CDN_PATH = PropertiesUtils.getProperty("path.cdn");
 
@@ -82,8 +85,6 @@ public class HttpStaticFileServerHandler extends SimpleChannelInboundHandler<Ful
 
 	@Override
 	protected void channelRead0(ChannelHandlerContext ctx, FullHttpRequest request) throws Exception {
-		// get the URL
-
 		URI uri = new URI(request.getUri());
 		String uriStr = uri.getPath();
 
@@ -93,8 +94,7 @@ public class HttpStaticFileServerHandler extends SimpleChannelInboundHandler<Ful
 			serveFile(ctx, request); // user requested a file, serve it
 		} else if (request.getMethod() == HttpMethod.POST) {
 			uploadFile(ctx, request); // user requested to upload file, handle request
-		} else {
-			// unknown request, send error message
+		} else { // 잘못된 요청
 			System.out.println(request.getMethod() + " request received, sending 405");
 			sendError(ctx, HttpResponseStatus.METHOD_NOT_ALLOWED);
 		}
@@ -102,7 +102,6 @@ public class HttpStaticFileServerHandler extends SimpleChannelInboundHandler<Ful
 	}
 
 	private void serveFile(ChannelHandlerContext ctx, FullHttpRequest request) {
-
 		// decode the query string
 		QueryStringDecoder decoderQuery = new QueryStringDecoder(request.getUri());
 		Map<String, List<String>> uriAttributes = decoderQuery.parameters();
@@ -151,7 +150,7 @@ public class HttpStaticFileServerHandler extends SimpleChannelInboundHandler<Ful
 		try {
 			fileLength = raf.length();
 		} catch (IOException ex) {
-			Logger.getLogger(HttpStaticFileServerHandler.class.getName()).log(Level.SEVERE, null, ex);
+			LOGGER.error(ex.toString(), ex);
 		}
 
 		HttpResponse response = new DefaultHttpResponse(HTTP_1_1, OK);
@@ -265,7 +264,7 @@ public class HttpStaticFileServerHandler extends SimpleChannelInboundHandler<Ful
 		if (fileName != null) {
 			msg = fileName.toString();
 		} else {
-			Logger.getLogger(HttpStaticFileServerHandler.class.getName()).log(Level.SEVERE, "uploaded file names are blank");
+			LOGGER.error("uploaded file names are blank");
 			status = HttpResponseStatus.BAD_REQUEST;
 			contentType = "text/plain; charset=UTF-8";
 		}
@@ -352,7 +351,7 @@ public class HttpStaticFileServerHandler extends SimpleChannelInboundHandler<Ful
 		}
 
 		String newFilename = FilenameUtils.getBaseName(upoadedFileName) + "_" + System.currentTimeMillis() + "." + FilenameUtils.getExtension(upoadedFileName);
-		
+
 		try {
 			BufferedImage originalImage = ImageIO.read(fileUpload.getFile());
 
@@ -387,7 +386,7 @@ public class HttpStaticFileServerHandler extends SimpleChannelInboundHandler<Ful
 		} catch (IOException ex) {
 			responseJson = null;
 		} catch (JSONException ex) {
-			Logger.getLogger(HttpStaticFileServerHandler.class.getName()).log(Level.SEVERE, null, ex);
+			LOGGER.error(ex.toString(), ex);
 			responseJson = null;
 		}
 
@@ -409,7 +408,7 @@ public class HttpStaticFileServerHandler extends SimpleChannelInboundHandler<Ful
 		try {
 			Thumbnails.of(new File(fileFullPath)).size(100, 100).toFile(new File(thumbImageFullPath));
 		} catch (IOException ex) {
-			Logger.getLogger(HttpStaticFileServerHandler.class.getName()).log(Level.SEVERE, null, ex);
+			LOGGER.error(ex.toString(), ex);
 			thumbImgName = "";
 		}
 
