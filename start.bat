@@ -11,4 +11,4 @@ set CLASSPATH=%CLASSPATH%;%1
 goto :eof
 
 :extlibe
-"%JAVA_CMD%" -Xmx256M -cp "%CLASSPATH%" kr.pe.ghp.fileserver.server.Main
+"%JAVA_CMD%" -Xmx512M -cp "%CLASSPATH%" kr.pe.ghp.fileserver.server.Main
